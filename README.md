@@ -10,6 +10,10 @@ settings panel — no more avatar menu → 设置.
 
 ![点击后打开设置面板](docs/settings-panel.png)
 
+侧边栏折叠成图标栏（rail）时只显示齿轮：
+
+![折叠态下的图标按钮](docs/rail.png)
+
 > 截图来自本仓库的端到端验证：真实 DSH Web UI（临时 profile + Chrome CDP）里渲染按钮、点击、打开面板。
 
 ## 安装
