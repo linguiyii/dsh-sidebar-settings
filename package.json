@@ -1,7 +1,9 @@
 {
   "name": "dsh-sidebar-settings",
   "version": "0.1.0",
+  "private": true,
   "description": "把设置入口从账号二级菜单提到侧边栏底部：一键打开设置页。 DeepSeek Harness client plugin that puts a settings button at the bottom of the sidebar.",
+  "author": "linguiyii",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -35,6 +37,14 @@
     "sidebar",
     "settings"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/linguiyii/dsh-sidebar-settings.git"
+  },
+  "homepage": "https://github.com/linguiyii/dsh-sidebar-settings#readme",
+  "bugs": {
+    "url": "https://github.com/linguiyii/dsh-sidebar-settings/issues"
+  },
   "engines": {
     "node": ">=22"
   },
