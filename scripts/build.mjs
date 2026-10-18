@@ -44,7 +44,10 @@ const PLATFORM_SEEDS = new Set([
   "@deepseek-ai/dsh-client-ui-dockkit",
 ]);
 
-const body = (await readFile(join(root, "src", "client.js"), "utf8")).trimEnd();
+// Normalize line endings first: a Windows checkout with core.autocrlf=true
+// hands us CRLF, which would otherwise make the generated bundle differ from
+// the committed one for purely local reasons (and dirty the working tree).
+const body = (await readFile(join(root, "src", "client.js"), "utf8")).replace(/\r\n/g, "\n").trimEnd();
 
 // Purity gate: every require() the body performs must be a platform seed,
 // otherwise the shell cannot materialize the module at load time.

@@ -1,0 +1,6 @@
+# Keep line endings LF everywhere: the generated bundle embeds src/client.js
+# verbatim, so a CRLF checkout (Windows core.autocrlf=true) would produce a
+# different lib/client.js than the committed one and dirty the working tree.
+* text=auto eol=lf
+
+*.png binary
