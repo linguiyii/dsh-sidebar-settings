@@ -1,5 +1,8 @@
 # dsh-sidebar-settings
 
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![verify](https://github.com/linguiyii/dsh-sidebar-settings/actions/workflows/verify.yml/badge.svg)](https://github.com/linguiyii/dsh-sidebar-settings/actions/workflows/verify.yml)
+
 把 DeepSeek Harness（DSH）的设置入口从「账号菜单 → 设置」的二级菜单里提出来，直接放到**侧边栏底部**：
 点一下就打开设置面板，不必再先点账号头像。
 
@@ -8,32 +11,55 @@ settings panel — no more avatar menu → 设置.
 
 ![侧边栏底部的设置按钮](docs/sidebar-button.png)
 
+> 图里两行「⚙ 设置」：上面一行是本插件新增的 `sidebar.footer.action` 座位，下面一行是外壳原生的
+> `sidebar.settings` 入口（本插件不删除它）。
+
 ![点击后打开设置面板](docs/settings-panel.png)
+
+> 截图展示的是设置面板的「添加 API Key」引导态；侧栏内容已做模糊处理。
 
 侧边栏折叠成图标栏（rail）时只显示齿轮：
 
 ![折叠态下的图标按钮](docs/rail.png)
 
-> 截图来自本仓库的端到端验证：真实 DSH Web UI（临时 profile + Chrome CDP）里渲染按钮、点击、打开面板。
+> 第一行是本插件渲染的图标按钮，第二行是原生入口。
+
+`sidebar-button.png` 与 `settings-panel.png` 由仓库里的 CDP 探测脚本产出（见「开发」）；折叠态截图是在
+同一个临时 profile 里手工折叠侧边栏后截取的。
+
+## 前置条件
+
+- **Node.js ≥ 22**（`package.json` 的 `engines`，构建与安装脚本都要求）。
+- **DeepSeek Harness 桌面端**：已在 0.1.5-rc.2 的 Web UI 上做过端到端验证。
+- 安装需要写权限：`<DSH_HOME>/profiles/<profile>` 目录（Windows 默认 `%USERPROFILE%\.dsh`）。
+- 仅 e2e 探测额外需要：`dsh` CLI + Chrome/Edge（`--headless=new --remote-debugging-port=<port>`）。
 
 ## 安装
 
-插件以**本地目录插件**的形式装进 DSH profile（Windows 桌面端默认 profile 为 `desktop`）：
+先克隆，再把这个仓库装进 DSH profile（Windows 桌面端默认 profile 为 `desktop`）：
 
 ```powershell
-# 在本仓库根目录执行（需要写入 <DSH_HOME>/profiles/desktop 的权限）
+git clone https://github.com/linguiyii/dsh-sidebar-settings
+cd dsh-sidebar-settings
+
 node scripts/install-desktop.mjs --dry-run   # 先看要改什么
 node scripts/install-desktop.mjs             # 真正写入
 ```
 
 脚本只做三件事，并把改动过的文件各备份一份为 `<file>.dsh-sidebar-settings.bak`：
 
-1. 在 `<DSH_HOME>/profiles/<profile>/node_modules/dsh-sidebar-settings` 建立指向本仓库的 junction；
+1. 在 `<DSH_HOME>/profiles/<profile>/node_modules/dsh-sidebar-settings` 建立指向本仓库的 junction
+   （非 Windows 平台用目录符号链接）；
 2. 在 profile 的 `package.json` 的 `dependencies` 里记录 `"dsh-sidebar-settings": "link:<本仓库路径>"`；
 3. 把 `dsh-sidebar-settings` 追加到 `dsh.profile.bundles`（host 启动时按这个列表加载 profile 层）。
 
+> **为什么不用 `dsh plugin add`**：`dsh plugin --profile desktop ...` 会被拒绝 ——
+> `error: profile "desktop" is managed exclusively by the Electron application`
+> （`desktop` profile 由桌面应用独占管理）。所以这里用脚本完成同样的三处改动。
+
 安装后**重启 DeepSeek Harness 桌面端**（客户端 bundle 在启动时装配）。
-卸载：`node scripts/install-desktop.mjs --uninstall`。
+卸载：`node scripts/install-desktop.mjs --uninstall` —— 删除链接、`dependencies` 条目与
+`dsh.profile.bundles` 条目；已经不存在的那几项会跳过。
 
 其他 profile / 其他 DSH_HOME：
 
@@ -67,7 +93,8 @@ $env:DSH_HOME = "C:\path\to\.dsh"; node scripts/install-desktop.mjs --profile we
   「设置 / Settings」项。全部基于 `[data-slot="..."]` 与 `aria-haspopup` 语义选择器，不依赖哈希后的
   CSS module 类名。
 
-不用合成键盘事件：Windows/macOS 桌面端的快捷键由原生 preload 拦截，页面里派发 `keydown` 打不开设置。
+不靠合成键盘事件：桌面端的 `Ctrl+,` 由宿主注册和处理，页面里派发 `keydown` 并不会打开设置。
+所以本插件直接调用设置外壳的 action（store 路径），或者点真实控件（DOM 兜底）。
 
 ## 开发
 
@@ -79,16 +106,22 @@ node scripts/build.mjs     # src/client.js -> lib/client.js（window.__ModuleLoa
 node scripts/verify.mjs    # 契约测试：VM 里加载 bundle，验证注册、渲染、四条打开/兜底路径
 ```
 
+`lib/client.js` 是提交进仓库的构建产物，CI 会重跑构建并用 `git diff --exit-code -- lib/client.js`
+确认它和 `src/client.js` 同步。
+
 端到端验证（可选，需要一个已装插件的 Web 实例 + 带调试端口的 Chrome/Edge）：
 
 ```powershell
-# 1) 起一个临时 profile 的 Web 实例，避免影响正在用的桌面端
-$env:DSH_HOME = "$env:TEMP\dsh-verify"; dsh --profile verify --port 4779 --no-open
+# 1) 起一个临时 profile 的 Web 实例（--from-default-profile 从内置模板初始化，避免影响正在用的桌面端）
+$env:DSH_HOME = "$env:TEMP\dsh-verify"
+dsh --profile verify --from-default-profile web --port 4779 --no-open
 # 2) Chrome 打开 http://127.0.0.1:4779/?token=... 并带上 --headless=new --remote-debugging-port=9333
 node scripts/probe-ui.mjs --cdp 9333 --shot lib/probe.png
 ```
 
-`probe-ui.mjs` 会等到按钮出现、打印它的标签/位置、截侧栏底部特写，点击按钮后确认设置面板打开（否则退出码 1）。
+`probe-ui.mjs` 会等到按钮出现、打印它的标签/位置、截侧栏底部特写（`<shot>-sidebar.png`），点击按钮后
+确认设置面板打开并截整窗（`<shot>`），否则退出码 1。折叠态（rail）截图不在脚本里，需要手工折叠
+侧边栏后另拍。
 
 ## 目录
 
@@ -101,7 +134,9 @@ scripts/build.mjs       无依赖构建：包装 + require 纯度闸门
 scripts/verify.mjs      Node 内契约测试
 scripts/install-desktop.mjs  把本仓库装进/卸出 DSH profile
 scripts/probe-ui.mjs    CDP 端到端探测（渲染 + 点击 + 截图）
+.github/workflows/verify.yml  CI：build → 构建产物漂移检查 → 契约测试
 docs/                   验证截图
+LICENSE                 MIT
 ```
 
 ## 已知限制
@@ -113,4 +148,4 @@ docs/                   验证截图
 
 ## License
 
-MIT
+[MIT](LICENSE)
