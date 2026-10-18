@@ -1,0 +1,27 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: build the client bundle
+        run: node scripts/build.mjs
+
+      - name: committed bundle matches src/
+        run: git diff --exit-code -- lib/client.js
+
+      - name: contract test the bundle
+        run: node scripts/verify.mjs
