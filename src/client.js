@@ -1,0 +1,185 @@
+/**
+ * Browser half of `dsh-sidebar-settings`.
+ *
+ * Adds a settings button to the bottom of the sidebar (the
+ * `sidebar.footer.action` list seat, rendered directly above the account row),
+ * so opening Settings is a single click instead of avatar menu → 设置.
+ *
+ * This file is the *factory body*: scripts/build.mjs wraps it verbatim in
+ * `window.__ModuleLoader__.load({ id, factory(require) {...} })`, so it is
+ * CommonJS and imports only the platform seed modules the shell provides.
+ *
+ * How the click opens the panel: `@deepseek-ai/dsh-client-ui-settings-general`
+ * registers the `sidebar.settings` slot with
+ * `store: { ...shellHandle, create: () => shellInstance }`. The slot registry
+ * keeps that store on the entry options, so any plugin can read it back and
+ * call the shell's own `actions.open()` — the exact action the stock gear
+ * button, the Ctrl+, command and the account menu item all use. If the store
+ * shape ever changes, we fall back to clicking the account menu's 设置 item.
+ */
+
+const React = require("react");
+const h = React.createElement;
+
+/** Cordis services required by this plugin. */
+exports.inject = ["slots"];
+
+const STYLE_ID = "dsh-sidebar-settings/button.css";
+const STYLE_TEXT = `
+.dss-foot-row{flex:none;display:flex;align-items:center;width:calc(100% + 4px);margin:2px -2px}
+.dss-btn{box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;height:34px;margin:0;padding:0 10px 0 9px;border:none;border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-primary);font-family:inherit;font-size:13px;line-height:20px;overflow:hidden}
+.dss-btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dss-btn:focus-visible{outline:2px solid var(--dsw-alias-label-primary);outline-offset:-2px}
+.dss-btn[data-rail="true"]{justify-content:center;padding:0}
+.dss-icon{flex:none;display:block;opacity:.85}
+.dss-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+`;
+
+/**
+ * The client module loader claims every untagged <style> that appears while the
+ * factory body runs and stamps it with data-plugin, so HMR can remove it.
+ */
+function injectStyles() {
+  if (typeof document === "undefined") return;
+  const tag = document.createElement("style");
+  tag.textContent = STYLE_TEXT;
+  tag.dataset.plugin = "dsh-sidebar-settings";
+  tag.dataset.pluginCss = STYLE_ID;
+  document.head.appendChild(tag);
+}
+
+/** Bilingual label without pulling in the locale service. */
+function isChinese() {
+  const lang = typeof document === "undefined" ? "zh" : document.documentElement.lang || "zh";
+  return String(lang).toLowerCase().startsWith("zh");
+}
+
+/**
+ * Open the settings panel through the shell's own store, when the installed
+ * shell version exposes one (`sidebar.settings` registered with `store`).
+ * @param ctx - plugin context; provides the `slots` service.
+ * @returns true when the shell accepted the action.
+ */
+function openSettingsViaStore(ctx) {
+  let entries = [];
+  try {
+    entries = ctx.slots.entries("sidebar.settings") || [];
+  } catch {
+    return false;
+  }
+  for (const entry of entries) {
+    const store = entry && (entry.store || (entry.options && entry.options.store));
+    if (!store || typeof store.create !== "function") continue;
+    try {
+      const instance = store.create();
+      const actions = instance && instance.actions;
+      if (actions && typeof actions.open === "function") {
+        actions.open();
+        return true;
+      }
+    } catch {
+      // a shell whose store shape changed — fall through to the DOM path
+    }
+  }
+  return false;
+}
+
+/**
+ * Fallback for shell versions that keep the settings open state private: click
+ * whatever the sidebar settings row renders. Older shells render a plain gear
+ * button there (one click opens settings); newer shells render the account menu,
+ * so the menu item has to be activated afterwards.
+ * @returns true when a trigger was clicked.
+ */
+function activateSettingsRow() {
+  if (typeof document === "undefined" || typeof document.querySelector !== "function") return false;
+  const row = document.querySelector('[data-slot="sidebar.settings"]');
+  if (row === null) return false;
+  // Plain gear button: `settings.trigger` is rendered inside it, no menu involved.
+  const seat = row.querySelector('[data-slot="settings.trigger"]');
+  if (seat !== null) {
+    const button = typeof seat.closest === "function" ? seat.closest("button") : null;
+    if (button !== null) {
+      button.click();
+      return true;
+    }
+  }
+  // Account menu: open it, then activate its 设置 / Settings item.
+  const menuTrigger = row.querySelector('button[aria-haspopup="menu"]');
+  if (menuTrigger === null) return false;
+  menuTrigger.click();
+  setTimeout(function () {
+    const label = isChinese() ? "设置" : "Settings";
+    const items = document.querySelectorAll('[role="menuitem"]');
+    for (const item of items) {
+      if ((item.textContent || "").includes(label)) {
+        item.click();
+        return;
+      }
+    }
+  }, 80);
+  return true;
+}
+
+function GearIcon() {
+  return h(
+    "svg",
+    {
+      className: "dss-icon",
+      width: 18,
+      height: 18,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 1.6,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": "true",
+    },
+    h("circle", { cx: 12, cy: 12, r: 3 }),
+    h("path", {
+      d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+    }),
+  );
+}
+
+injectStyles();
+
+/**
+ * Mount the footer button.
+ * @param ctx - plugin context.
+ */
+exports.apply = function apply(ctx) {
+  /**
+   * Footer button; `wide` is false when the sidebar is collapsed to the icon rail.
+   * @param props - the `sidebar.footer.action` seat props.
+   */
+  function SettingsFooterButton(props) {
+    const wide = props.wide;
+    const label = isChinese() ? "设置" : "Settings";
+    const tip = isChinese() ? "打开设置 (Ctrl+,)" : "Open settings (Ctrl+,)";
+    return h(
+      "div",
+      { className: "dss-foot-row" },
+      h(
+        "button",
+        {
+          type: "button",
+          className: "dss-btn",
+          "data-rail": wide === false ? "true" : "false",
+          "aria-label": label,
+          title: tip,
+          onClick: function () {
+            if (!openSettingsViaStore(ctx)) activateSettingsRow();
+          },
+        },
+        h(GearIcon, null),
+        wide === false ? null : h("span", { className: "dss-label", children: label }),
+      ),
+    );
+  }
+
+  ctx.slots.inject("sidebar.footer.action", function () {
+    return ctx.slots.register({ name: "sidebar.footer.action", id: "sidebar-settings", order: 100 }, SettingsFooterButton);
+  });
+};

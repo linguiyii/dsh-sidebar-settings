@@ -1,3 +1,5 @@
 node_modules/
+.pnpm-store/
 .research/
 *.log
+.DS_Store

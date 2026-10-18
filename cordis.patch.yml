@@ -1,0 +1,8 @@
+# Bundle patch layer for dsh-sidebar-settings.
+#
+# Installed as a community plugin layer, this file inserts the plugin row into
+# the profile's loader: the host half (package main) mounts, and the client half
+# is picked up from the `dsh.client` marker in package.json.
+- insert:
+    - id: sidebar-settings
+      name: dsh-sidebar-settings

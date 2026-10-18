@@ -1,0 +1,48 @@
+{
+  "name": "dsh-sidebar-settings",
+  "version": "0.1.0",
+  "description": "把设置入口从账号二级菜单提到侧边栏底部：一键打开设置页。 DeepSeek Harness client plugin that puts a settings button at the bottom of the sidebar.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/verify.mjs",
+    "install:desktop": "node scripts/install-desktop.mjs"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "client-plugin",
+    "sidebar",
+    "settings"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "lib/index.js",
+    "lib/client.js",
+    "README.md"
+  ],
+  "license": "MIT"
+}
